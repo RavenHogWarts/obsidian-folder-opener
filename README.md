@@ -68,3 +68,7 @@ dist/obsidian_installer.exe
 
 1. 双击运行 `remove_obsidian_context_menu.reg` 文件
 2. 找到Obsidian安装目录，删除目录下的 `open_folder_with_obsidian.exe`
+
+## 参考项目
+
+- [TracingOrigins/obsidian-pure-launcher-win](https://github.com/TracingOrigins/obsidian-pure-launcher-win)
