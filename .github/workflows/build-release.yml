@@ -1,0 +1,104 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - '*'  # 触发条件：推送以'v'开头的标签
+  workflow_dispatch:  # 允许手动触发
+
+permissions:
+  contents: write
+  discussions: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+        
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        
+    - name: Build executables
+      run: |
+        # 检查是否有图标文件
+        if [ -f "src/app-icon.ico" ]; then
+          # 构建主程序（带图标）
+          pyinstaller --onefile --windowed --icon=src/app-icon.ico --name=open_folder_with_obsidian src/main.py
+          
+          # 构建安装程序（带图标）
+          pyinstaller --onefile --windowed --icon=src/app-icon.ico --name=obsidian_installer src/installer.py
+        else
+          # 构建主程序（无图标）
+          pyinstaller --onefile --windowed --name=open_folder_with_obsidian src/main.py
+          
+          # 构建安装程序（无图标）
+          pyinstaller --onefile --windowed --name=obsidian_installer src/installer.py
+        fi
+        
+        # 清理build目录
+        rm -rf build
+        rm -f *.spec
+        
+    - name: Create version info
+      run: |
+        # 创建版本信息文件到dist目录
+        VERSION=$(echo $GITHUB_REF | sed 's/refs\/tags\///' || echo "dev")
+        cat > dist/README.md << EOF
+        Obsidian文件夹打开器 $VERSION
+        
+        构建时间: $(date '+%Y-%m-%d %H:%M:%S')
+        提交: $GITHUB_SHA
+        
+        文件说明:
+        - open_folder_with_obsidian.exe: 主程序，用于打开文件夹
+        - obsidian_installer.exe: 安装程序，用于设置右键菜单
+        
+        使用方法:
+        1. 以管理员身份运行 obsidian_installer.exe 进行安装
+        2. 安装完成后即可在任意文件夹右键选择"用Obsidian打开"
+        EOF
+        
+    - name: Create zip package
+      run: |
+        # 创建zip包
+        VERSION=$(echo $GITHUB_REF | sed 's/refs\/tags\///' || echo "dev")
+        cd dist
+        zip -r "obsidian-folder-opener-${VERSION}.zip" *.exe *.txt
+        cd ..
+        
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: obsidian-folder-opener-windows
+        path: dist/
+        
+    - name: Create Release
+      id: create_release
+      uses: softprops/action-gh-release@v2
+      with:
+        tag_name: ${{ github.ref_name }}
+        name: Release ${{ github.ref_name }}
+        draft: false
+        prerelease: false
+        generate_release_notes: true
+        discussion_category_name: "Announcements"
+        body: |
+          ## Obsidian文件夹打开器 ${{ github.ref_name }}          
+          ---
+        files: |
+          dist/obsidian-folder-opener-*.zip
+          dist/open_folder_with_obsidian.exe
+          dist/obsidian_installer.exe
+          dist/README.md
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
