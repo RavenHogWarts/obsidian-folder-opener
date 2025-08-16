@@ -1,0 +1,73 @@
+[build-system]
+requires = ["setuptools>=45", "wheel", "setuptools_scm[toml]>=6.2"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "open-folder-with-obsidian"
+version = "1.0.0"
+description = "用Obsidian打开文件夹的Windows右键菜单工具"
+readme = "README.md"
+license = {text = "MIT"}
+authors = [
+    {name = "RavenHogwarts"}
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: End Users/Desktop",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: Microsoft :: Windows",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Topic :: Desktop Environment",
+    "Topic :: Utilities",
+]
+requires-python = ">=3.8"
+dependencies = [
+    "pyinstaller>=5.13.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/RavenHogwarts/open-folder-with-obsidian"
+Repository = "https://github.com/RavenHogwarts/open-folder-with-obsidian.git"
+Issues = "https://github.com/RavenHogwarts/open-folder-with-obsidian/issues"
+
+[project.scripts]
+open-folder-with-obsidian = "main:main"
+obsidian-installer = "installer:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-dir]
+"" = "src"
+
+[tool.black]
+line-length = 88
+target-version = ['py38']
+include = '\.pyi?$'
+extend-exclude = '''
+/(
+  # directories
+  \.eggs
+  | \.git
+  | \.hg
+  | \.mypy_cache
+  | \.tox
+  | \.venv
+  | build
+  | dist
+)/
+'''
+
+[tool.mypy]
+python_version = "3.8"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+
+[tool.flake8]
+max-line-length = 88
+extend-ignore = ["E203", "W503"]
