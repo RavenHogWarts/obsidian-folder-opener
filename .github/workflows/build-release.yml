@@ -73,7 +73,7 @@ jobs:
         # 创建zip包
         VERSION=$(echo $GITHUB_REF | sed 's/refs\/tags\///' || echo "dev")
         cd dist
-        zip -r "obsidian-folder-opener-${VERSION}.zip" *.exe *.txt
+        zip -r "obsidian-folder-opener-${VERSION}.zip" *.exe *.md
         cd ..
         
     - name: Upload build artifacts
