@@ -67,9 +67,25 @@ jobs:
         $BUILD_TIME = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
         $COMMIT_SHA = $env:GITHUB_SHA
         
-        $README_CONTENT = "Obsidian文件夹打开器 $VERSION`n`n构建时间: $BUILD_TIME`n提交: $COMMIT_SHA`n`n文件说明:`n- open_folder_with_obsidian.exe: 主程序，用于打开文件夹`n- obsidian_installer.exe: 安装程序，用于设置右键菜单`n`n使用方法:`n1. 以管理员身份运行 obsidian_installer.exe 进行安装`n2. 安装完成后即可在任意文件夹右键选择"用Obsidian打开"`n`n卸载方法:`n在Obsidian安装目录运行 remove_obsidian_context_menu.reg 文件"
+        $README_LINES = @(
+          "Obsidian文件夹打开器 $VERSION",
+          "",
+          "构建时间: $BUILD_TIME",
+          "提交: $COMMIT_SHA",
+          "",
+          "文件说明:",
+          "- open_folder_with_obsidian.exe: 主程序，用于打开文件夹",
+          "- obsidian_installer.exe: 安装程序，用于设置右键菜单",
+          "",
+          "使用方法:",
+          "1. 以管理员身份运行 obsidian_installer.exe 进行安装",
+          "2. 安装完成后即可在任意文件夹右键选择用Obsidian打开",
+          "",
+          "卸载方法:",
+          "在Obsidian安装目录运行 remove_obsidian_context_menu.reg 文件"
+        )
         
-        $README_CONTENT | Out-File -FilePath "dist\README.md" -Encoding UTF8
+        $README_LINES | Out-File -FilePath "dist\README.md" -Encoding UTF8
         
     - name: Create zip package
       run: |
