@@ -113,10 +113,10 @@ def generate_registry_file(obsidian_dir, exe_path):
 @="{exe_path_escaped} \\"%V\\""
 '''
     
-    # 写入注册表文件到当前目录
+    # 写入注册表文件到当前目录，使用UTF-8编码
     reg_file_path = os.path.join(os.getcwd(), "add_obsidian_context_menu.reg")
     try:
-        with open(reg_file_path, 'w', encoding='utf-16le') as f:
+        with open(reg_file_path, 'w', encoding='utf-8') as f:
             f.write(reg_content)
         print(f"注册表文件已生成: {reg_file_path}")
         return reg_file_path
@@ -141,7 +141,7 @@ def generate_uninstall_registry_file(current_dir):
     
     uninstall_reg_path = os.path.join(current_dir, "remove_obsidian_context_menu.reg")
     try:
-        with open(uninstall_reg_path, 'w', encoding='utf-16le') as f:
+        with open(uninstall_reg_path, 'w', encoding='utf-8') as f:
             f.write(uninstall_reg_content)
         print(f"卸载注册表文件已生成: {uninstall_reg_path}")
         return uninstall_reg_path
