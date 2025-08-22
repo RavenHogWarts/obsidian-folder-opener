@@ -4,7 +4,6 @@ on:
   push:
     tags:
       - '*'  # 触发条件：推送以'v'开头的标签
-  workflow_dispatch:  # 允许手动触发
 
 permissions:
   contents: write
@@ -31,56 +30,61 @@ jobs:
     - name: Build executables
       run: |
         # 检查是否有图标文件
-        if [ -f "src/app-icon.ico" ]; then
+        if (Test-Path "src/app-icon.ico") {
           # 构建主程序（带图标）
           pyinstaller --onefile --windowed --icon=src/app-icon.ico --name=open_folder_with_obsidian src/main.py
           
           # 构建安装程序（带图标）
           pyinstaller --onefile --windowed --icon=src/app-icon.ico --name=obsidian_installer src/installer.py
-        else
+        } else {
           # 构建主程序（无图标）
           pyinstaller --onefile --windowed --name=open_folder_with_obsidian src/main.py
           
           # 构建安装程序（无图标）
           pyinstaller --onefile --windowed --name=obsidian_installer src/installer.py
-        fi
+        }
         
         # 清理build目录
-        rm -rf build
-        rm -f *.spec
+        Remove-Item -Recurse -Force build -ErrorAction SilentlyContinue
+        Remove-Item -Force *.spec -ErrorAction SilentlyContinue
         
     - name: Verify build results
       run: |
         echo "=== 验证构建结果 ==="
         echo "dist目录内容:"
-        ls -la dist/
+        Get-ChildItem dist/
         echo ""
         echo "检查exe文件是否存在:"
-        if [ -f "dist/open_folder_with_obsidian.exe" ]; then
+        if (Test-Path "dist/open_folder_with_obsidian.exe") {
           echo "✓ open_folder_with_obsidian.exe 存在"
-        else
+        } else {
           echo "✗ open_folder_with_obsidian.exe 不存在"
           exit 1
-        fi
+        }
         
-        if [ -f "dist/obsidian_installer.exe" ]; then
+        if (Test-Path "dist/obsidian_installer.exe") {
           echo "✓ obsidian_installer.exe 存在"
-        else
+        } else {
           echo "✗ obsidian_installer.exe 不存在"
           exit 1
-        fi
+        }
         
         echo "构建验证完成"
         
     - name: Create version info
       run: |
         # 创建版本信息文件到dist目录
-        VERSION=$(echo $GITHUB_REF | sed 's/refs\/tags\///' || echo "dev")
-        cat > dist/README.md << EOF
+        $VERSION = $env:GITHUB_REF -replace 'refs/tags/', ''
+        if (-not $VERSION) { $VERSION = "dev" }
+        
+        $BUILD_TIME = Get-Date -Format 'yyyy-MM-dd HH:mm:ss'
+        $COMMIT_SHA = $env:GITHUB_SHA
+        
+        $README_CONTENT = @"
         Obsidian文件夹打开器 $VERSION
         
-        构建时间: $(date '+%Y-%m-%d %H:%M:%S')
-        提交: $GITHUB_SHA
+        构建时间: $BUILD_TIME
+        提交: $COMMIT_SHA
         
         文件说明:
         - open_folder_with_obsidian.exe: 主程序，用于打开文件夹
@@ -89,33 +93,36 @@ jobs:
         使用方法:
         1. 以管理员身份运行 obsidian_installer.exe 进行安装
         2. 安装完成后即可在任意文件夹右键选择"用Obsidian打开"
-        EOF
+"@
+        
+        Set-Content -Path "dist/README.md" -Value $README_CONTENT -Encoding UTF8
         
     - name: Create zip package
       run: |
         echo "=== 创建zip包 ==="
-        VERSION=$(echo $GITHUB_REF | sed 's/refs\/tags\///' || echo "dev")
+        $VERSION = $env:GITHUB_REF -replace 'refs/tags/', ''
+        if (-not $VERSION) { $VERSION = "dev" }
         echo "版本: $VERSION"
         
-        cd dist
-        echo "当前目录: $(pwd)"
+        Set-Location dist
+        echo "当前目录: $(Get-Location)"
         echo "要打包的文件:"
-        ls -la *.exe *.md
+        Get-ChildItem *.exe, *.md
         
-        # 使用明确的文件路径创建zip包
-        zip -r "obsidian-folder-opener-${VERSION}.zip" \
-          "open_folder_with_obsidian.exe" \
-          "obsidian_installer.exe" \
-          "README.md"
+        # 使用PowerShell的Compress-Archive创建zip包
+        $ZIP_NAME = "obsidian-folder-opener-${VERSION}.zip"
+        Compress-Archive -Path "open_folder_with_obsidian.exe", "obsidian_installer.exe", "README.md" -DestinationPath $ZIP_NAME -Force
         
         echo "zip包创建完成:"
-        ls -la *.zip
+        Get-ChildItem *.zip
         
         # 验证zip包内容
         echo "验证zip包内容:"
-        unzip -l "obsidian-folder-opener-${VERSION}.zip"
+        $ZIP_ARCHIVE = [System.IO.Compression.ZipFile]::OpenRead($ZIP_NAME)
+        $ZIP_ARCHIVE.Entries | ForEach-Object { echo $_.Name }
+        $ZIP_ARCHIVE.Dispose()
         
-        cd ..
+        Set-Location ..
         
     - name: Upload build artifacts
       uses: actions/upload-artifact@v4
