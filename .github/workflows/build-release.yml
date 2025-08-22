@@ -49,6 +49,29 @@ jobs:
         rm -rf build
         rm -f *.spec
         
+    - name: Verify build results
+      run: |
+        echo "=== 验证构建结果 ==="
+        echo "dist目录内容:"
+        ls -la dist/
+        echo ""
+        echo "检查exe文件是否存在:"
+        if [ -f "dist/open_folder_with_obsidian.exe" ]; then
+          echo "✓ open_folder_with_obsidian.exe 存在"
+        else
+          echo "✗ open_folder_with_obsidian.exe 不存在"
+          exit 1
+        fi
+        
+        if [ -f "dist/obsidian_installer.exe" ]; then
+          echo "✓ obsidian_installer.exe 存在"
+        else
+          echo "✗ obsidian_installer.exe 不存在"
+          exit 1
+        fi
+        
+        echo "构建验证完成"
+        
     - name: Create version info
       run: |
         # 创建版本信息文件到dist目录
@@ -70,10 +93,28 @@ jobs:
         
     - name: Create zip package
       run: |
-        # 创建zip包
+        echo "=== 创建zip包 ==="
         VERSION=$(echo $GITHUB_REF | sed 's/refs\/tags\///' || echo "dev")
+        echo "版本: $VERSION"
+        
         cd dist
-        zip -r "obsidian-folder-opener-${VERSION}.zip" *.exe *.md
+        echo "当前目录: $(pwd)"
+        echo "要打包的文件:"
+        ls -la *.exe *.md
+        
+        # 使用明确的文件路径创建zip包
+        zip -r "obsidian-folder-opener-${VERSION}.zip" \
+          "open_folder_with_obsidian.exe" \
+          "obsidian_installer.exe" \
+          "README.md"
+        
+        echo "zip包创建完成:"
+        ls -la *.zip
+        
+        # 验证zip包内容
+        echo "验证zip包内容:"
+        unzip -l "obsidian-folder-opener-${VERSION}.zip"
+        
         cd ..
         
     - name: Upload build artifacts
