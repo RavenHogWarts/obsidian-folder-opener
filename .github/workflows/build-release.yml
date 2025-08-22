@@ -3,7 +3,7 @@ name: Build and Release
 on:
   push:
     tags:
-      - '*'  # 触发条件：推送以'v'开头的标签
+      - '*'
   workflow_dispatch:  # 允许手动触发
 
 permissions:
@@ -12,7 +12,7 @@ permissions:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
     
     steps:
     - name: Checkout code
@@ -28,53 +28,73 @@ jobs:
         python -m pip install --upgrade pip
         pip install -r requirements.txt
         
-    - name: Build executables
+    - name: Clean old build files
       run: |
-        # 检查是否有图标文件
-        if [ -f "src/app-icon.ico" ]; then
-          # 构建主程序（带图标）
-          pyinstaller --onefile --windowed --icon=src/app-icon.ico --name=open_folder_with_obsidian src/main.py
-          
-          # 构建安装程序（带图标）
-          pyinstaller --onefile --windowed --icon=src/app-icon.ico --name=obsidian_installer src/installer.py
-        else
-          # 构建主程序（无图标）
-          pyinstaller --onefile --windowed --name=open_folder_with_obsidian src/main.py
-          
-          # 构建安装程序（无图标）
-          pyinstaller --onefile --windowed --name=obsidian_installer src/installer.py
-        fi
+        if (Test-Path "dist") { Remove-Item -Recurse -Force "dist" }
+        if (Test-Path "build") { Remove-Item -Recurse -Force "build" }
+        if (Test-Path "*.spec") { Remove-Item -Force "*.spec" }
         
-        # 清理build目录
-        rm -rf build
-        rm -f *.spec
+    - name: Build main executable
+      run: |
+        Write-Host "正在构建主程序 (open_folder_with_obsidian.exe)..."
+        if (Test-Path "src\app-icon.ico") {
+          pyinstaller --onefile --windowed --icon=src\app-icon.ico --name=open_folder_with_obsidian src/main.py
+        } else {
+          Write-Host "[警告] 未找到src\app-icon.ico图标文件，使用默认图标"
+          pyinstaller --onefile --windowed --name=open_folder_with_obsidian src/main.py
+        }
+        
+    - name: Build installer executable
+      run: |
+        Write-Host "正在构建安装程序 (obsidian_installer.exe)..."
+        if (Test-Path "src\app-icon.ico") {
+          pyinstaller --onefile --windowed --icon=src\app-icon.ico --name=obsidian_installer src/installer.py
+        } else {
+          Write-Host "[警告] 未找到src\app-icon.ico图标文件，使用默认图标"
+          pyinstaller --onefile --windowed --name=obsidian_installer src/installer.py
+        }
+        
+    - name: Clean build artifacts
+      run: |
+        if (Test-Path "build") { Remove-Item -Recurse -Force "build" }
+        if (Test-Path "*.spec") { Remove-Item -Force "*.spec" }
         
     - name: Create version info
       run: |
-        # 创建版本信息文件到dist目录
-        VERSION=$(echo $GITHUB_REF | sed 's/refs\/tags\///' || echo "dev")
-        cat > dist/README.md << EOF
-        Obsidian文件夹打开器 $VERSION
+        $VERSION = $env:GITHUB_REF -replace "refs/tags/", ""
+        if (-not $VERSION) { $VERSION = "dev" }
         
-        构建时间: $(date '+%Y-%m-%d %H:%M:%S')
-        提交: $GITHUB_SHA
+        $BUILD_TIME = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+        $COMMIT_SHA = $env:GITHUB_SHA
         
-        文件说明:
-        - open_folder_with_obsidian.exe: 主程序，用于打开文件夹
-        - obsidian_installer.exe: 安装程序，用于设置右键菜单
+        $README_CONTENT = @"
+Obsidian文件夹打开器 $VERSION
+
+构建时间: $BUILD_TIME
+提交: $COMMIT_SHA
+
+文件说明:
+- open_folder_with_obsidian.exe: 主程序，用于打开文件夹
+- obsidian_installer.exe: 安装程序，用于设置右键菜单
+
+使用方法:
+1. 以管理员身份运行 obsidian_installer.exe 进行安装
+2. 安装完成后即可在任意文件夹右键选择"用Obsidian打开"
+
+卸载方法:
+在Obsidian安装目录运行 remove_obsidian_context_menu.reg 文件
+"@
         
-        使用方法:
-        1. 以管理员身份运行 obsidian_installer.exe 进行安装
-        2. 安装完成后即可在任意文件夹右键选择"用Obsidian打开"
-        EOF
+        $README_CONTENT | Out-File -FilePath "dist\README.md" -Encoding UTF8
         
     - name: Create zip package
       run: |
-        # 创建zip包
-        VERSION=$(echo $GITHUB_REF | sed 's/refs\/tags\///' || echo "dev")
-        cd dist
-        zip -r "obsidian-folder-opener-${VERSION}.zip" *.exe *.md
-        cd ..
+        $VERSION = $env:GITHUB_REF -replace "refs/tags/", ""
+        if (-not $VERSION) { $VERSION = "dev" }
+        
+        Set-Location dist
+        Compress-Archive -Path "*.exe", "*.md" -DestinationPath "obsidian-folder-opener-${VERSION}.zip" -Force
+        Set-Location ..
         
     - name: Upload build artifacts
       uses: actions/upload-artifact@v4
