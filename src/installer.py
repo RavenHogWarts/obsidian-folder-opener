@@ -10,6 +10,7 @@ import subprocess
 import tkinter as tk
 from tkinter import filedialog, messagebox
 from registry_utils import get_enhanced_obsidian_paths
+from config_manager import save_obsidian_path
 
 def find_obsidian_installation():
     """
@@ -82,15 +83,37 @@ def select_main_exe():
     print(f"选择的文件: {exe_path}")
     return exe_path
 
+def safe_messagebox_error(title, message):
+    """
+    安全地显示错误消息框，确保GUI资源正确清理
+    """
+    root = None
+    try:
+        root = tk.Tk()
+        root.withdraw()
+        messagebox.showerror(title, message)
+    except Exception as e:
+        print(f"GUI错误: {e}")
+        print(f"错误信息: {title} - {message}")
+    finally:
+        if root:
+            try:
+                root.destroy()
+            except:
+                pass
+
 def generate_registry_file(obsidian_dir, exe_path):
     """
     生成注册表文件到当前目录
     """
     print("正在生成注册表文件...")
     
+    # 确保路径使用标准的Windows路径格式（反斜杠）
+    exe_path_normalized = os.path.normpath(exe_path)
+    obsidian_exe_path = os.path.normpath(os.path.join(obsidian_dir, "Obsidian.exe"))
+    
     # 对于注册表文件，路径中的反斜杠需要双重转义
-    exe_path_escaped = exe_path.replace("\\", "\\\\")
-    obsidian_exe_path = os.path.join(obsidian_dir, "Obsidian.exe")
+    exe_path_escaped = exe_path_normalized.replace("\\", "\\\\")
     obsidian_exe_escaped = obsidian_exe_path.replace("\\", "\\\\")
     
     # 注册表内容
@@ -155,10 +178,29 @@ def copy_exe_to_obsidian_dir(exe_path, obsidian_dir):
     """
     print("正在复制exe文件到Obsidian目录...")
     
+    # 标准化路径
+    exe_path = os.path.normpath(exe_path)
+    obsidian_dir = os.path.normpath(obsidian_dir)
+    
     exe_filename = os.path.basename(exe_path)
     target_path = os.path.join(obsidian_dir, exe_filename)
     
     try:
+        # 检查源文件是否存在
+        if not os.path.exists(exe_path):
+            print(f"源文件不存在: {exe_path}")
+            return None
+        
+        # 检查目标目录是否存在
+        if not os.path.exists(obsidian_dir):
+            print(f"目标目录不存在: {obsidian_dir}")
+            return None
+        
+        # 如果目标文件已存在，先删除
+        if os.path.exists(target_path):
+            print(f"目标文件已存在，将被覆盖: {target_path}")
+            os.remove(target_path)
+        
         shutil.copy2(exe_path, target_path)
         print(f"文件已复制到: {target_path}")
         return target_path
@@ -204,6 +246,14 @@ def show_completion_dialog(obsidian_dir, exe_path):
     root.geometry("500x300")
     root.resizable(False, False)
     
+    # 确保窗口关闭时正确退出
+    def on_closing():
+        root.quit()     # 退出mainloop
+        root.destroy()  # 销毁窗口
+        sys.exit(0)     # 退出程序
+    
+    root.protocol("WM_DELETE_WINDOW", on_closing)
+    
     # 居中显示
     root.update_idletasks()
     x = (root.winfo_screenwidth() // 2) - (root.winfo_width() // 2)
@@ -233,13 +283,29 @@ def show_completion_dialog(obsidian_dir, exe_path):
     button_frame.pack(pady=10)
     
     def close_app():
-        root.destroy()
-        sys.exit(0)
+        root.quit()     # 退出mainloop
+        root.destroy()  # 销毁窗口
+        sys.exit(0)     # 退出程序
     
     ok_button = tk.Button(button_frame, text="确定", command=close_app, width=10)
     ok_button.pack()
     
-    root.mainloop()
+    # 设置焦点到按钮，允许按回车关闭
+    ok_button.focus_set()
+    root.bind('<Return>', lambda e: close_app())
+    
+    try:
+        root.mainloop()
+    except Exception as e:
+        print(f"GUI异常: {e}")
+    finally:
+        # 确保窗口被销毁
+        try:
+            root.quit()
+            root.destroy()
+        except:
+            pass
+        sys.exit(0)
 
 def main():
     """
@@ -258,8 +324,10 @@ def main():
             messagebox.showerror("权限不足", 
                                "此程序需要管理员权限来修改注册表。\n"
                                "请右键选择此程序，然后选择'以管理员身份运行'。")
+            root.destroy()  # 确保销毁窗口
             sys.exit(1)
-    except:
+    except Exception as e:
+        print(f"权限检查异常: {e}")
         pass
     
     # 1. 查找Obsidian安装路径
@@ -269,23 +337,56 @@ def main():
         root = tk.Tk()
         root.withdraw()
         
-        choice = messagebox.askyesno("未找到Obsidian", 
-                                   "未能自动找到Obsidian安装路径。\n"
-                                   "是否手动选择Obsidian安装目录？")
-        
-        if choice:
-            obsidian_dir = filedialog.askdirectory(title="请选择Obsidian安装目录")
-            if not obsidian_dir:
-                print("未选择目录，安装取消")
-                sys.exit(1)
+        try:
+            choice = messagebox.askyesno("未找到Obsidian", 
+                                       "未能自动找到Obsidian安装路径。\n"
+                                       "是否手动选择Obsidian安装目录？")
             
-            obsidian_exe = os.path.join(obsidian_dir, "Obsidian.exe")
-            if not os.path.exists(obsidian_exe):
-                messagebox.showerror("错误", f"在选择的目录中未找到Obsidian.exe文件")
+            if choice:
+                obsidian_dir = filedialog.askdirectory(title="请选择Obsidian安装目录")
+                if not obsidian_dir:
+                    print("未选择目录，安装取消")
+                    root.destroy()  # 确保销毁窗口
+                    sys.exit(1)
+                
+                # 标准化路径格式
+                obsidian_dir = os.path.normpath(obsidian_dir)
+                obsidian_exe = os.path.join(obsidian_dir, "Obsidian.exe")
+                
+                if not os.path.exists(obsidian_exe):
+                    safe_messagebox_error("错误", 
+                        f"在选择的目录中未找到Obsidian.exe文件\n"
+                        f"选择的目录: {obsidian_dir}\n"
+                        f"期望的文件: {obsidian_exe}")
+                    root.destroy()  # 确保销毁窗口
+                    sys.exit(1)
+                
+                print(f"手动选择的Obsidian目录: {obsidian_dir}")
+                print(f"找到Obsidian.exe: {obsidian_exe}")
+                
+                # 保存用户选择的路径到配置文件
+                print("正在保存Obsidian路径到配置文件...")
+                if save_obsidian_path(obsidian_dir):
+                    print("✓ Obsidian路径已保存到配置文件")
+                else:
+                    print("⚠ 保存配置文件失败，但安装仍将继续")
+                    
+            else:
+                print("安装取消")
+                root.destroy()  # 确保销毁窗口
                 sys.exit(1)
-        else:
-            print("安装取消")
-            sys.exit(1)
+        
+        finally:
+            # 确保GUI窗口被正确销毁
+            try:
+                root.destroy()
+            except:
+                pass
+    else:
+        # 即使是自动找到的路径，也保存到配置文件
+        print("正在保存自动找到的Obsidian路径到配置文件...")
+        if save_obsidian_path(obsidian_dir):
+            print("✓ Obsidian路径已保存到配置文件")
     
     print(f"使用Obsidian目录: {obsidian_dir}")
     
@@ -297,14 +398,14 @@ def main():
     # 3. 复制exe文件到Obsidian目录
     target_exe_path = copy_exe_to_obsidian_dir(main_exe_path, obsidian_dir)
     if not target_exe_path:
-        messagebox.showerror("错误", "复制文件失败")
+        safe_messagebox_error("错误", "复制文件失败")
         sys.exit(1)
     
     # 4. 生成注册表文件到当前目录
     current_dir = os.getcwd()
     reg_file_path = generate_registry_file(obsidian_dir, target_exe_path)
     if not reg_file_path:
-        messagebox.showerror("错误", "生成注册表文件失败")
+        safe_messagebox_error("错误", "生成注册表文件失败")
         sys.exit(1)
     
     # 5. 生成卸载注册表文件到当前目录
@@ -315,7 +416,7 @@ def main():
         print("安装成功！")
         show_completion_dialog(obsidian_dir, target_exe_path)
     else:
-        messagebox.showerror("错误", "应用注册表文件失败")
+        safe_messagebox_error("错误", "应用注册表文件失败")
         sys.exit(1)
 
 if __name__ == "__main__":

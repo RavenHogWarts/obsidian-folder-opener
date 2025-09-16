@@ -10,6 +10,19 @@ import time
 import sys
 import subprocess
 from registry_utils import get_enhanced_obsidian_paths
+from config_manager import get_saved_obsidian_exe_path, save_obsidian_path
+
+def safe_input(prompt=""):
+    """
+    安全的输入函数，在GUI环境下不会抛出异常
+    """
+    try:
+        return input(prompt)
+    except (RuntimeError, EOFError):
+        # 在GUI环境下或没有stdin时，直接返回
+        print(prompt + "（程序运行在GUI环境，无法接收键盘输入）")
+        time.sleep(2)  # 给用户时间看到消息
+        return ""
 
 def generate_vault_id(folder_path):
     """
@@ -107,6 +120,18 @@ def add_vault_to_config(config, folder_path):
         if vault_info.get('path') == folder_path:
             print(f"[信息] 文件夹已存在于配置中: {folder_path}")
             print(f"[信息] 现有vault ID: {existing_id}")
+            
+            # 重要：为已有vault设置open标志和更新时间戳
+            current_timestamp = int(time.time() * 1000)  # 毫秒时间戳
+            vault_info['open'] = True
+            vault_info['ts'] = current_timestamp
+            
+            print(f"[成功] 已更新现有vault:")
+            print(f"  ID: {existing_id}")
+            print(f"  路径: {folder_path}")
+            print(f"  时间戳: {current_timestamp}")
+            print(f"  设置为打开状态: True")
+            
             return existing_id
     
     # 添加新的vault
@@ -127,35 +152,71 @@ def add_vault_to_config(config, folder_path):
 def launch_obsidian():
     """
     启动Obsidian应用程序
+    按照优先级顺序查找：1.配置文件 2.注册表 3.提示用户安装
     """
     print("\n正在启动Obsidian...")
     print("=" * 40)
     
-    # 使用增强的路径查找
+    # 第一优先级：使用保存的配置路径
+    print("1. 检查保存的配置路径...")
+    saved_exe_path = get_saved_obsidian_exe_path()
+    if saved_exe_path and os.path.exists(saved_exe_path):
+        print(f"[成功] 使用保存的Obsidian路径: {saved_exe_path}")
+        print("即将启动Obsidian...")
+        subprocess.Popen([saved_exe_path], shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        print("启动命令已执行")
+        print("\n" + "=" * 40)
+        print("成功启动Obsidian！")
+        print("=" * 40)
+        return True
+    elif saved_exe_path:
+        print(f"[警告] 保存的路径已失效: {saved_exe_path}")
+    else:
+        print("[信息] 未找到保存的配置路径")
+    
+    # 第二优先级：使用注册表和常规路径查找
+    print("\n2. 使用注册表和常规路径查找...")
     OBSIDIAN_PATHS = get_enhanced_obsidian_paths()
     
     path_found = False
+    found_path = None
     for i, path in enumerate(OBSIDIAN_PATHS, 1):
         print(f"正在检查路径 {i}: {path}")
         if os.path.exists(path):
             print(f"[成功找到] {path}")
-            print("即将启动Obsidian...")
-            subprocess.Popen([path], shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-            print("启动命令已执行")
+            found_path = path
             path_found = True
             break
         else:
             print(f"[未找到] {path}")
     
-    if not path_found:
-        print("所有路径都未找到Obsidian")
-        print("请检查Obsidian是否已正确安装")
-        return False
-    else:
+    if path_found:
+        print("即将启动Obsidian...")
+        subprocess.Popen([found_path], shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        print("启动命令已执行")
+        
+        # 将找到的路径保存到配置文件中，以便下次使用
+        obsidian_dir = os.path.dirname(found_path)
+        print(f"正在保存找到的路径到配置文件: {obsidian_dir}")
+        if save_obsidian_path(obsidian_dir):
+            print("✓ 路径已保存，下次启动将更快")
+        else:
+            print("⚠ 保存配置失败，但不影响本次使用")
+        
         print("\n" + "=" * 40)
         print("成功启动Obsidian！")
         print("=" * 40)
         return True
+    
+    # 第三优先级：提示用户重新安装配置
+    print("\n3. 未找到Obsidian，需要重新配置...")
+    print("所有路径都未找到Obsidian")
+    print("请按以下步骤操作：")
+    print("1. 确认Obsidian已正确安装")
+    print("2. 以管理员身份运行 obsidian_installer.exe 重新配置路径")
+    print("3. 或者手动安装Obsidian到标准位置")
+    safe_input("按回车键继续...")
+    return False
 
 def open_folder_with_obsidian(folder_path):
     """
@@ -204,7 +265,7 @@ def main():
         print("示例: open_folder_with_obsidian.exe \"C:\\Users\\Username\\Documents\\MyNotes\"")
         print(f"实际收到的参数数量: {len(sys.argv)}")
         print(f"参数列表: {sys.argv}")
-        input("按回车键退出...")
+        safe_input("按回车键退出...")
         sys.exit(1)
     
     folder_path = sys.argv[1]
@@ -218,13 +279,13 @@ def main():
     # 验证路径是否存在
     if not os.path.exists(folder_path):
         print(f"[错误] 指定的文件夹不存在: {folder_path}")
-        input("按回车键退出...")
+        safe_input("按回车键退出...")
         sys.exit(1)
     
     # 验证是否为文件夹
     if not os.path.isdir(folder_path):
         print(f"[错误] 指定的路径不是文件夹: {folder_path}")
-        input("按回车键退出...")
+        safe_input("按回车键退出...")
         sys.exit(1)
     
     success = open_folder_with_obsidian(folder_path)
@@ -235,7 +296,7 @@ def main():
         sys.exit(0)
     else:
         print("\n操作失败！")
-        input("按回车键退出...")
+        safe_input("按回车键退出...")
         sys.exit(1)
 
 if __name__ == "__main__":
