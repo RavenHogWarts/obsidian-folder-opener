@@ -9,7 +9,7 @@ echo ========================================
 echo.
 
 :: 检查Python是否安装
-py --version >nul 2>&1
+python --version >nul 2>&1
 if errorlevel 1 (
     echo [错误] 未找到Python，请先安装Python 3.8+
     pause
@@ -17,19 +17,19 @@ if errorlevel 1 (
 )
 
 echo [信息] Python已安装
-py --version
+python --version
 
 echo [1/4] 安装依赖包...
 
 :: 安装依赖
 echo 正在安装项目依赖...
-py -m pip install -r requirements.txt
+pip install -r requirements.txt
 if errorlevel 1 (
     echo [错误] 依赖安装失败
     echo 请尝试以下解决方案:
     echo 1. 重新创建虚拟环境: python -m venv .venv
     echo 2. 激活虚拟环境: .venv\Scripts\activate.bat
-    echo 3. 手动安装: python -m pip install pyinstaller
+    echo 3. 手动安装:  pip install pyinstaller
     pause
     exit /b 1
 )
@@ -45,10 +45,10 @@ echo [3/4] 构建可执行文件...
 
 echo 正在构建主程序 (open_folder_with_obsidian.exe)...
 if exist src\app-icon.ico (
-    py -m PyInstaller --onefile --windowed --icon=src\app-icon.ico --name=open_folder_with_obsidian src/main.py
+    python -m PyInstaller --onefile --windowed --icon=src\app-icon.ico --name=open_folder_with_obsidian src/main.py
 ) else (
     echo [警告] 未找到src\app-icon.ico图标文件，使用默认图标
-    py -m PyInstaller --onefile --windowed --name=open_folder_with_obsidian src/main.py
+    python -m PyInstaller --onefile --windowed --name=open_folder_with_obsidian src/main.py
 )
 if errorlevel 1 (
     echo [错误] 主程序构建失败
@@ -58,10 +58,10 @@ if errorlevel 1 (
 
 echo 正在构建安装程序 (obsidian_installer.exe)...
 if exist src\app-icon.ico (
-    py -m PyInstaller --onefile --windowed --icon=src\app-icon.ico --name=obsidian_installer src/installer.py
+    python -m PyInstaller --onefile --windowed --icon=src\app-icon.ico --name=obsidian_installer src/installer.py
 ) else (
     echo [警告] 未找到src\app-icon.ico图标文件，使用默认图标
-    py -m PyInstaller --onefile --windowed --name=obsidian_installer src/installer.py
+    python -m PyInstaller --onefile --windowed --name=obsidian_installer src/installer.py
 )
 if errorlevel 1 (
     echo [错误] 安装程序构建失败
