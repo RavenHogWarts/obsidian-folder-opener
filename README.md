@@ -69,6 +69,14 @@ dist/obsidian_installer.exe
 1. 双击运行 `remove_obsidian_context_menu.reg` 文件
 2. 找到Obsidian安装目录，删除目录下的 `open_folder_with_obsidian.exe`
 
+## `obsidian-pure-launcher.vbs` 的使用
+
+1. 使用文本编辑器打开 `obsidian-pure-launcher.vbs` ，修改顶部的变量 `OBSIDIAN_PATH`
+2. 将 `obsidian-pure-launcher.vbs` 复制到 obsidian 的安装路径下
+3. 打开 `C:\ProgramData\Microsoft\Windows\Start Menu\Programs`，找到 `Obsidian` 快捷方式
+4. 右键快捷方式文件 `Obsidian`， 选择属性，修改快捷方式的目标
+5. 将原有的目标 `安装路径\obsidian.exe` 修改为 `安装路径\obsidian-pure-launcher.vbs`
+
 ## 参考项目
 
 - [TracingOrigins/obsidian-pure-launcher-win](https://github.com/TracingOrigins/obsidian-pure-launcher-win)
